@@ -1,0 +1,46 @@
+{
+  "status": "human_authored_draft_examples",
+  "description": "These annotations demonstrate traceability. They are neither model-generated extractions nor approved Aurevion policies.",
+  "claims": [
+    {
+      "id": "claim:protein-context",
+      "title": "Interpret protein timing alongside total intake",
+      "population": "Populations represented in the protein-timing meta-analysis",
+      "source_ids": ["PMC3879660", "PMC5477153"],
+      "status": "draft_example",
+      "note": "Inspect the underlying studies, intake adjustment, outcomes and limitations before approving a recommendation."
+    },
+    {
+      "id": "claim:frequency-context",
+      "title": "Distinguish training frequency from weekly volume",
+      "population": "Populations represented in the strength-frequency meta-analysis",
+      "source_ids": ["PMC6081873"],
+      "status": "draft_example",
+      "note": "A frequency comparison can be confounded by different weekly training volumes."
+    },
+    {
+      "id": "claim:adherence-context",
+      "title": "Keep adherence observations tied to their studied population",
+      "population": "Previously sedentary post-menopausal women in a supervised programme",
+      "source_ids": ["PMC4362642", "PMC5470183"],
+      "status": "draft_example",
+      "note": "Observational and population-specific findings are candidates for product research, not universal causal rules."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "decision:nutrition-explanations",
+      "title": "Explain the basis of a nutrition suggestion",
+      "claim_ids": ["claim:protein-context", "claim:adherence-context"],
+      "status": "proposed_example",
+      "rationale": "Expose what informed a suggestion, who was studied, and which questions remain unresolved."
+    },
+    {
+      "id": "decision:training-schedule",
+      "title": "Explain schedule tradeoffs and missing context",
+      "claim_ids": ["claim:frequency-context", "claim:adherence-context"],
+      "status": "proposed_example",
+      "rationale": "Review volume, feasibility and population fit before turning a schedule preference into a rule."
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+# Exact dependency versions for the GraphRAG pipeline are locked by its release.
+graphrag==3.3.0
+matplotlib>=3.10,<4
+pyvis==0.3.2
+nbformat>=5.10,<6
+nbclient>=0.10,<1
+ipykernel>=6.29,<8
