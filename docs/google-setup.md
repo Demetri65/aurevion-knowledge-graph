@@ -1,46 +1,36 @@
-# Google setup for the notebook
+# Google setup
 
-Checked against Google's official documentation on 2026-10-11. Account benefits, availability and quotas can change; this guide does not verify your account's entitlement.
+## Start without a key
 
-## What Google AI Pro contributes
+Keep `RUN_LIVE = False` for the source, draft-graph and evaluation walkthrough. It needs no Gemini API credit or GPU. Enable live inference only after inspecting your API project's quota and billing.
 
-Google AI Pro now offers higher subscription limits in the **Google AI Studio web interface**, including Playground and Build. Those allowances are distinct from the Gemini API project tiers used by a Python notebook. A Colab notebook calling Gemini needs an API key and follows the associated project's API quotas and billing settings. [Google AI plans](https://ai.google.dev/gemini-api/docs/google-ai-plans).
+## API access and subscription benefits
 
-The current Google One help page lists **$10 in monthly Google Cloud credits** through developer benefits. An active eligible AI Pro membership must be linked to a Google Developer profile. Eligible Cloud credits can cover Gemini API usage after they are applied to a Cloud Billing account. This is a finite credit benefit, not unlimited subscription API usage. [AI Pro benefits](https://support.google.com/googleone/answer/14534406?hl=en), [Google Developer Program FAQ](https://developers.google.com/profile/help/faq).
+Gemini notebook calls use an **API project and key**, with that project's quotas, billing and data-use terms. Google AI Pro's AI Studio interface allowances are separate. Eligible Cloud credits or Colab compute benefits depend on your account; check your actual entitlement rather than assuming subscription access transfers to API calls.
 
-Some accounts use prepaid API billing. Google requires an active paid balance greater than zero before eligible promotional Cloud credits can be consumed, and currently documents a $5 minimum credit purchase. Eligible promotional credits are consumed before prepaid funds. Check your billing screen before opting into paid usage; this project never enables billing or buys credits. Google One AI credits are a separate system from Google Cloud credits. [Gemini API billing](https://ai.google.dev/gemini-api/docs/billing), [subscription compatibility](https://ai.google.dev/gemini-api/docs/google-ai-plans).
+Current references: [Google AI plans](https://ai.google.dev/gemini-api/docs/google-ai-plans), [AI Pro benefits](https://support.google.com/googleone/answer/14534406?hl=en), [API billing](https://ai.google.dev/gemini-api/docs/billing), [active rate limits](https://ai.google.dev/gemini-api/docs/rate-limits). These were checked on October 11, 2026; benefits and quotas can change.
 
-AI Pro also currently lists **200 Colab compute units (CCUs)**. The help page restricts that benefit to eligible Google One family plan managers aged 18 or older, and excludes trial memberships. A student promotional trial should therefore not be assumed to include those units. Check the Colab account's actual balance and plan. Hardware and runtime availability still vary. [AI Pro Colab benefits](https://support.google.com/googleone/answer/14534406?hl=en), [Colab resource limits](https://research.google.com/colaboratory/faq.html).
+## Models and bounded defaults
 
-## Choose a project and model
+| Role | Model |
+|---|---|
+| Extraction and answers | `gemini-3.1-flash-lite` |
+| Text embeddings | `gemini-embedding-001`, 3,072 dimensions |
 
-The lab pins GraphRAG **3.3.0**. Use the project's pinned dependencies rather than combining configuration snippets from older releases. Configuration validation is performed offline; provider access, quotas and live compatibility are confirmed only by a successful smoke test in your account.
+The lab pins GraphRAG **3.3.0** and starts with two abstracts and one concurrent request. Keep the supplied chunk limits; embedding 001 accepts up to 2,048 input tokens. Changing the embedding model or dimensions requires a new vector index.
 
-The initial candidates are:
+See [Flash-Lite capabilities](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite), [embedding specifications](https://ai.google.dev/gemini-api/docs/embeddings), [pricing and data use](https://ai.google.dev/gemini-api/docs/pricing) and [GraphRAG model configuration](https://microsoft.github.io/graphrag/config/models/). The usage ledger records observed token counts and available cost estimates; it does not enforce a spend ceiling.
 
-| Role | Gemini model ID | Reason for the initial choice |
-| --- | --- | --- |
-| Extraction and answer generation | `gemini-3.1-flash-lite` | Stable model with structured output and a free API tier. Current paid standard text rates are $0.25 per million input tokens and $1.50 per million output tokens, including thinking tokens. |
-| Text embeddings | `gemini-embedding-001` | Stable text embedding model used in Microsoft's Gemini configuration example. It accepts up to 2,048 input tokens and defaults to 3,072 dimensions. |
+## Provide credentials at runtime
 
-Sources: [3.1 Flash-Lite capabilities](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite), [current pricing](https://ai.google.dev/gemini-api/docs/pricing), [embedding specifications](https://ai.google.dev/gemini-api/docs/embeddings), [GraphRAG model selection](https://microsoft.github.io/graphrag/config/models/).
+1. In [AI Studio](https://aistudio.google.com/apikey), choose a project, inspect its billing tier and quotas, and create or reuse a key.
+2. In **browser Colab**, add `GEMINI_API_KEY` to the Secrets panel and grant notebook access.
+3. In the **VS Code Colab extension**, use the notebook's masked live-key prompt or an environment variable on the remote kernel. `userdata.get()` is currently unsupported there; see [the VS Code guide](vscode-colab.md).
+4. With a **local kernel**, provide `GEMINI_API_KEY` in that process's environment through your secret manager or private shell session.
+5. Set `RUN_LIVE = True`, then run the smoke test before indexing. Keep the key out of source files, saved outputs and Git.
 
-Use the conservative document/chunk limits supplied by the lab for embedding 001. Changing embedding models or dimensions requires rebuilding the relevant vector index; vectors from different embedding spaces cannot be mixed. Free-tier API access is quota-limited. Google directs you to [AI Studio's active rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) for your project rather than providing a guaranteed universal allowance.
+## Read the smoke test
 
-## Colab credentials
+The probe checks one structured completion with an exact synthetic source quote, then a finite embedding with the expected dimensions. Passing establishes basic provider compatibility, not reliable scientific extraction. If it fails, resolve the reported model, quota or credential issue before rerunning; the notebook stops before indexing.
 
-1. Run the key-free notebook first. Installation, source inspection, the labeled draft graph and evaluation preparation do not require a Gemini key.
-2. In [Google AI Studio](https://aistudio.google.com/apikey), choose a project and inspect its billing tier and active quotas. Use a free-tier project if you intend to test without enabling usage-based billing.
-3. Create or reuse a Gemini key for that project. In Colab, open the key-shaped **Secrets** panel, add the name `GEMINI_API_KEY`, and enable notebook access for that secret.
-4. Leave the key out of code cells, saved outputs, Markdown, Git, screenshots and chat. The notebook reads the secret at runtime; do not paste it into the `.ipynb` file.
-5. Set the notebook's explicit live-execution flag only when you are ready to use that key. Run the smoke-test cell before enabling indexing.
-
-On a local Jupyter runtime, provide `GEMINI_API_KEY` as a process environment variable through your preferred local secret manager or private shell session. Never save its value in the notebook or a tracked file. Use the notebook's default live-disabled mode when sharing it, and clear any live outputs before publishing.
-
-## Interpret the smoke test
-
-The smoke test should make one small, non-streaming schema-shaped completion and a bounded embedding request. Confirm JSON schema validation, vector dimensions and finite values before indexing. A valid JSON response establishes format compatibility; it does not establish reliable scientific extraction.
-
-If the smoke test fails, inspect the sanitized error category and model/project settings. A quota error can occur with a valid key; an unavailable model can occur with an otherwise working project. Resolve that specific condition before rerunning indexing. Do not switch automatically to a paid project or a more expensive model.
-
-This lab sends only the selected public, licensed research text. Google's pricing page distinguishes free-tier data use for product improvement from paid-tier data handling. Subscription UI benefits do not establish the handling of notebook API calls; the API project's settings and applicable terms govern those calls. [Gemini pricing and data-use table](https://ai.google.dev/gemini-api/docs/pricing).
+Live calls use selected public, licensed research. Free-tier input may be used to improve Google's products; the API project's terms govern notebook calls. Clear live notebook outputs and restore the live-disabled default before sharing the source notebook.

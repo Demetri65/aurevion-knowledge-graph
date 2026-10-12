@@ -17,76 +17,108 @@ def code(text):
 
 
 md("""
-# Aurevion Knowledge Graph
-### Research passages → evidence context → reviewable product decisions
+# Aurevion Knowledge Graph · Research lab
 
-An inspectable experiment with **Microsoft GraphRAG + Gemini**, built for Colab and Jupyter.
+**Question:** Does graph-assisted retrieval make fitness and nutrition evidence easier to
+trace and interpret than passage/vector retrieval?
 
-**Two distinct tracks:** the key-free walkthrough uses licensed papers and clearly labelled,
-human-authored draft links. The live track extracts a graph with Gemini and compares graph-assisted
-retrieval against a passage/vector baseline. Model outputs remain unreviewed.
+**Hypothesis:** Explicit relationships may help connect interventions, populations and outcomes.
+They may also add errors or cost. We compare both methods on the same small corpus.
 
-The five-paper corpus is a **historical pipeline test set**, not a current comprehensive review.
-This project does not supply personal medical or nutritional prescriptions.
+**Workflow:** open the local project in VS Code and select a Google Colab kernel.
+The kernel runs remotely; local files are not automatically synchronized. See
+[VS Code + Colab](../docs/vscode-colab.md) for connection, upload and download steps.
+Local Jupyter and browser Colab are alternatives.
 
-**Start here:** open this notebook in Colab; cell 1 loads the public project repository.
-Alternatively, clear `REPOSITORY_URL` and upload the supplied project ZIP when prompted. Locally, start Jupyter
-from the cloned project. See `README.md`, `docs/google-setup.md` and `docs/evaluation-guide.md`.
+The offline track uses **human-authored draft links**. The live track uses **unreviewed Gemini
+outputs**. Five historical papers test the pipeline; they do not establish current guidance or
+personal prescriptions.
+
+**Lab outline**
+
+1. [Connect the project](#1-connect-the-project)
+2. [Choose the experiment](#2-choose-the-experiment)
+3. [Inspect the corpus](#3-inspect-the-corpus)
+4. [Explore draft decision links](#4-explore-draft-decision-links)
+5. [Prepare evaluation](#5-prepare-evaluation)
+6. [Probe model access](#6-probe-model-access)
+7. [Build the extracted graph](#7-build-the-extracted-graph)
+8. [Compare retrieval](#8-compare-retrieval)
+9. [Export and review](#9-export-and-review)
 """)
 md("""
-## 1 · Load the project and install its pinned GraphRAG release
+<a id="1-connect-the-project"></a>
+## 1 · Connect the project
 
-The notebook uses Python **3.11–3.13**. The project source is separate from Colab's runtime.
-The ZIP contains the notebook, source code, licensed article snapshots and evaluation questions;
-it excludes credentials and run caches. Package installation can take several minutes.
+**Purpose:** locate source files and install GraphRAG 3.3.0 with Python 3.11–3.13.
+**Checkpoint:** the cell prints the project path and dependency version.
+**Interpretation:** `/content/...` is the remote runtime; a local path is local execution.
 
-**First Colab run:** if the cell stops with **Dependencies changed**, choose
-**Runtime → Restart session and run all** once. This refreshes preloaded packages;
-the installation and project files remain on the runtime disk.
+A fresh Colab runtime clones the public repository. For unpublished source, use VS Code
+**Upload to Colab** in a fresh runtime, then set `PROJECT_BUNDLE` to the uploaded ZIP path. Browser Colab's
+Files panel is another upload route. Build the ZIP with `python scripts/package_colab.py`.
+Clear `PROJECT_BUNDLE` after extraction, including before rerunning after a kernel restart.
+
+For local edits already committed and pushed, opt into `PULL_RUNTIME_SOURCE`; it allows only a
+clean, fast-forward runtime update. Restart the kernel if source or loaded dependencies change.
 """)
 code('''
 import sys, os, json, subprocess, zipfile, stat
 from pathlib import Path
 
 REPOSITORY_URL = "https://github.com/Demetri65/aurevion-knowledge-graph.git"
+PROJECT_BUNDLE = None  # Example: '/content/aurevion-knowledge-graph-colab.zip' after manual upload.
+PULL_RUNTIME_SOURCE = False  # Remote clone only; local changes must first be committed and pushed.
+RUNTIME_PROJECT = Path('/content/aurevion-knowledge-graph')
+IS_COLAB_RUNTIME = Path('/content').is_dir()
+
 if not (3, 11) <= sys.version_info[:2] < (3, 14):
-    raise RuntimeError("Select a Python 3.11–3.13 runtime before installing GraphRAG 3.3.0.")
+    raise RuntimeError("Select a Python 3.11–3.13 kernel before installing GraphRAG 3.3.0.")
 
 def find_project():
-    for candidate in [Path.cwd(), *Path.cwd().parents, Path('/content/aurevion-knowledge-lab')]:
+    for candidate in [Path.cwd(), *Path.cwd().parents, RUNTIME_PROJECT]:
         if (candidate / 'pyproject.toml').is_file() and (candidate / 'corpus/manifest.jsonl').is_file():
             return candidate.resolve()
 
 PROJECT_ROOT = find_project()
-if PROJECT_ROOT is None and REPOSITORY_URL:
+if PROJECT_BUNDLE and PROJECT_ROOT is not None:
+    raise RuntimeError('PROJECT_BUNDLE cannot replace an existing checkout. Use a fresh runtime for new source, or clear it to reuse the existing source.')
+if PROJECT_ROOT is None and PROJECT_BUNDLE:
+    if not IS_COLAB_RUNTIME:
+        raise RuntimeError('Extract the project locally, then open its folder in VS Code or Jupyter.')
+    archive_path = Path(PROJECT_BUNDLE)
+    if not archive_path.is_file():
+        raise FileNotFoundError('Upload the project ZIP to the runtime before setting PROJECT_BUNDLE.')
+    with zipfile.ZipFile(archive_path) as archive:
+        if sum(item.file_size for item in archive.infolist()) > 15_000_000:
+            raise ValueError('Project archive exceeds the 15 MB limit.')
+        for item in archive.infolist():
+            target = (Path('/content') / item.filename).resolve()
+            if not target.is_relative_to(RUNTIME_PROJECT) or stat.S_ISLNK(item.external_attr >> 16):
+                raise ValueError('Unexpected archive path or symbolic link.')
+        archive.extractall('/content')
+    PROJECT_ROOT = find_project()
+if PROJECT_ROOT is None and IS_COLAB_RUNTIME and REPOSITORY_URL:
     from urllib.parse import urlparse
     parsed = urlparse(REPOSITORY_URL)
     if parsed.scheme != 'https' or parsed.netloc != 'github.com' or parsed.query or parsed.fragment:
         raise ValueError('Use a plain HTTPS GitHub repository URL.')
-    subprocess.run(['git', 'clone', '--depth', '1', REPOSITORY_URL, '/content/aurevion-knowledge-lab'], check=True)
+    subprocess.run(['git', 'clone', '--depth', '1', REPOSITORY_URL, str(RUNTIME_PROJECT)], check=True)
     PROJECT_ROOT = find_project()
 if PROJECT_ROOT is None:
-    try:
-        from google.colab import files
-    except ImportError:
-        raise RuntimeError('Start Jupyter from the project directory, or use the Colab ZIP workflow.') from None
-    print('Upload aurevion-knowledge-lab-colab.zip (the project bundle).')
-    uploaded = files.upload()
-    archives = [name for name in uploaded if name.endswith('.zip')]
-    if len(archives) != 1:
-        raise ValueError('Upload exactly one project ZIP.')
-    destination = Path('/content').resolve()
-    with zipfile.ZipFile(archives[0]) as archive:
-        if sum(item.file_size for item in archive.infolist()) > 15_000_000:
-            raise ValueError('Project archive exceeds the 15 MB limit.')
-        for item in archive.infolist():
-            target = (destination / item.filename).resolve()
-            if not target.is_relative_to(destination / 'aurevion-knowledge-lab') or stat.S_ISLNK(item.external_attr >> 16):
-                raise ValueError('Unexpected archive path or symbolic link.')
-        archive.extractall(destination)
-    PROJECT_ROOT = find_project()
-if PROJECT_ROOT is None:
-    raise RuntimeError('The project bundle did not contain the expected source files.')
+    raise RuntimeError('Open the local project folder, or clone/upload it into the Colab runtime. See docs/vscode-colab.md.')
+
+if PULL_RUNTIME_SOURCE:
+    if not IS_COLAB_RUNTIME or not (PROJECT_ROOT / '.git').is_dir():
+        raise RuntimeError('PULL_RUNTIME_SOURCE requires a Git clone in the Colab runtime.')
+    dirty = subprocess.check_output(['git', '-C', str(PROJECT_ROOT), 'status', '--porcelain'], text=True)
+    if dirty.strip():
+        raise RuntimeError('The runtime clone has local changes. Preserve them before pulling; no files were discarded.')
+    before = subprocess.check_output(['git', '-C', str(PROJECT_ROOT), 'rev-parse', 'HEAD'], text=True).strip()
+    subprocess.run(['git', '-C', str(PROJECT_ROOT), 'pull', '--ff-only'], check=True)
+    after = subprocess.check_output(['git', '-C', str(PROJECT_ROOT), 'rev-parse', 'HEAD'], text=True).strip()
+    if before != after and any(name.startswith('aurevion_knowledge_lab') for name in sys.modules):
+        raise RuntimeError('Runtime source updated. Restart the kernel and rerun from section 1 to load it.')
 
 from importlib.metadata import version, PackageNotFoundError
 try:
@@ -98,20 +130,26 @@ if not installed:
     for dependency in ['numpy', 'pandas', 'pydantic']:
         loaded = sys.modules.get(dependency)
         if loaded is not None and getattr(loaded, '__version__', None) != version(dependency):
-            raise RuntimeError('Dependencies changed. Restart the Colab session, then rerun from cell 1.')
+            raise RuntimeError('Dependencies changed. Restart the kernel, then rerun from section 1.')
 sys.path.insert(0, str(PROJECT_ROOT / 'src'))
-print({'project': str(PROJECT_ROOT), 'python': sys.version.split()[0], 'graphrag': version('graphrag')})
+source_commit = 'source_bundle_without_git_metadata'
+if (PROJECT_ROOT / '.git').exists():
+    head = subprocess.run(['git', '-C', str(PROJECT_ROOT), 'rev-parse', 'HEAD'], capture_output=True, text=True)
+    source_commit = head.stdout.strip() if head.returncode == 0 else 'uncommitted_initial_project'
+print({'project': str(PROJECT_ROOT), 'source_commit': source_commit,
+       'python': sys.version.split()[0], 'graphrag': version('graphrag')})
 ''')
 md("""
-## 2 · Configure a bounded experiment
+<a id="2-choose-the-experiment"></a>
+## 2 · Choose the experiment
 
-Defaults use **two abstracts**, one inexpensive completion model and one embedding model.
-`RUN_LIVE = False` keeps Run All key-free. Enable the live track only after checking the API
-project's quota/billing. Google AI Pro's AI Studio quota is distinct from notebook API quota;
-eligible Cloud credits may help. See the linked setup guide for current subscription details.
+**Purpose:** fix the corpus, models and workspace before comparing retrieval.
+**Checkpoint:** live inference is disabled; two abstracts are selected.
+**Interpretation:** this is a bounded starting point, not full-literature coverage.
 
-To expand, change the corpus settings deliberately and rerun from this cell.
-Full-text mode retains section headings and excludes the bibliography. Truncation is recorded.
+Keep `RUN_LIVE = False` for a key-free Run All. Enable it only after checking project quota and
+billing in [Google setup](../docs/google-setup.md). Full-text mode retains headings, excludes the
+bibliography and records truncation. Drive persistence is optional and may need browser authorization.
 """)
 code('''
 RUN_LIVE = False
@@ -127,16 +165,19 @@ WORKSPACE = PROJECT_ROOT / 'runs'
 if PERSIST_TO_DRIVE:
     from google.colab import drive
     drive.mount('/content/drive')
-    WORKSPACE = Path('/content/drive/MyDrive/aurevion-knowledge-lab/runs')
+    WORKSPACE = Path('/content/drive/MyDrive/aurevion-knowledge-graph/runs')
 WORKSPACE.mkdir(parents=True, exist_ok=True)
 print({'live_inference': RUN_LIVE, 'content_mode': CONTENT_MODE, 'documents': MAX_DOCUMENTS})
 ''')
 md("""
-## 3 · Inspect sources and provenance
+<a id="3-inspect-the-corpus"></a>
+## 3 · Inspect the corpus
 
-All five snapshots came from Europe PMC's permitted full-text XML API and carry explicit CC-BY
-licenses. Source IDs and license statements are validated before preparation. `fetch_corpus`
-can refresh the cached sources; it is deliberately separate from this offline walkthrough.
+**Purpose:** inspect licensed papers and the exact text selected for this run.
+**Checkpoint:** source IDs, CC-BY licenses, hashes and truncation status are visible.
+**Interpretation:** an abstract supports less detail than a full-text study; retain that limit.
+
+Europe PMC snapshots are cached. `fetch_corpus` can refresh them deliberately; it does not run here.
 """)
 code('''
 import pandas as pd
@@ -154,15 +195,16 @@ print(documents[0]['text'][:1200])
 # Optional refresh: fetch_corpus(PROJECT_ROOT, refresh=True)
 ''')
 md("""
-## 4 · Explore a source-to-decision graph without an API key
+<a id="4-explore-draft-decision-links"></a>
+## 4 · Explore draft decision links
 
-Blue nodes are papers; gray nodes are topic tags; amber nodes are draft claims; purple nodes
-retain population context; orange nodes are proposed product decisions.
+**Purpose:** inspect how research, claims and proposed product decisions could connect.
+**Checkpoint:** a graph and the decisions affected by a changed source appear.
+**Interpretation:** these links are human-authored examples, not generated or approved evidence.
 
-**This is a human-authored demonstration.** `SOURCE_TO_REVIEW` means a proposed evidence link,
-not verified scientific support. The demo uses metadata from all five papers even when the live
-index selects only two abstracts. Inspect a node to see its status. Scientific appraisal and
-product approval are separate future review steps.
+Blue = paper; gray = topic; amber = draft claim; purple = population; orange = proposed decision.
+`SOURCE_TO_REVIEW` marks a candidate link. This demo includes all five papers; the live corpus uses the
+selection from section 2. Click a node to inspect its status.
 """)
 code('''
 annotations = json.loads((PROJECT_ROOT / 'decisions/examples.json').read_text())
@@ -176,12 +218,15 @@ print('If PMC3879660 changes, these explicit draft dependencies need review:')
 display(pd.DataFrame(impacted_decisions(demo_graph, 'PMC3879660')))
 ''')
 md("""
-## 5 · Prepare an honest evaluation sheet
+<a id="5-prepare-evaluation"></a>
+## 5 · Prepare evaluation
 
-Scores start empty. Coverage checks distinguish an absent source or missing full text from a
-retrieval failure. Compare fidelity to passages, citation traceability, population fit and useful
-question coverage. The guide explains each measure; do not convert model confidence into
-scientific certainty.
+**Purpose:** define useful questions before inspecting model answers.
+**Checkpoint:** coverage flags appear; scores remain empty.
+**Interpretation:** missing sources or full text are corpus limits, not necessarily retrieval failures.
+
+Assess passage fidelity, citation traceability and population fit using the
+[evaluation guide](../docs/evaluation-guide.md). Model confidence is not scientific certainty.
 """)
 code('''
 questions = [json.loads(line) for line in (PROJECT_ROOT / 'evaluations/questions.jsonl').read_text().splitlines() if line.strip()]
@@ -190,16 +235,17 @@ display(pd.DataFrame(evaluation)[['id', 'question', 'corpus_covered', 'mode_cove
 write_json(WORKSPACE / 'demo' / 'evaluation-unscored.json', evaluation)
 ''')
 md("""
-## 6 · Validate configuration; opt into credentials and model probes
+<a id="6-probe-model-access"></a>
+## 6 · Probe model access
 
-Add `GEMINI_API_KEY` to **Colab Secrets** (key icon) and grant this notebook access. Locally,
-provide it through an environment variable. The key is never printed, saved in the notebook,
-or included in exported configuration. Key-free runs still validate the pinned configuration.
+**Purpose:** validate configuration, then test model access only when live execution is enabled.
+**Checkpoint:** offline runs print a skip; live runs must pass schema, exact-quote and embedding checks.
+**Interpretation:** the tiny probe establishes format/access compatibility, not extraction quality.
 
-The live probe tests one small structured response and one embedding. Passing it verifies
-basic provider compatibility, not scientific extraction quality. Successful LiteLLM callbacks
-record usage without retaining prompts. Cost estimates do not enforce a hard spend ceiling or
-account for promotional credits; provider billing remains the authoritative record.
+Credentials are read from the environment, then Colab Secrets, then a **masked runtime prompt**.
+The key is never printed or saved. Do not display `config`. Set Colab secret notebook access if using it.
+Smoke probes bypass response caching; index responses are cached. Usage estimates are not spend limits
+or billing records. See [Google setup](../docs/google-setup.md).
 """)
 code('''
 import hashlib
@@ -229,9 +275,17 @@ if RUN_LIVE:
             from google.colab import userdata
             api_key = userdata.get('GEMINI_API_KEY')
         except Exception:
-            raise RuntimeError('Add GEMINI_API_KEY to Colab Secrets or the local environment.') from None
+            api_key = None
     if not api_key:
-        raise RuntimeError('GEMINI_API_KEY is empty.')
+        import getpass, warnings
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', getpass.GetPassWarning)
+                api_key = getpass.getpass('Gemini API key (runtime only): ')
+        except (getpass.GetPassWarning, EOFError):
+            raise RuntimeError('This kernel cannot mask input. Use GEMINI_API_KEY in the environment or Colab Secrets.') from None
+    if not api_key or not api_key.strip():
+        raise RuntimeError('No Gemini API key was supplied; indexing has not started.')
     config = make_config(RUN_DIR, api_key, COMPLETION_MODEL, EMBEDDING_MODEL)
     del api_key
     ledger = install_usage_ledger()
@@ -244,15 +298,16 @@ else:
     print('Live probes skipped. Demo outputs remain human-authored; Gemini compatibility is unverified.')
 ''')
 md("""
-## 7 · Build the actual extracted graph
+<a id="7-build-the-extracted-graph"></a>
+## 7 · Build the extracted graph
 
-Standard GraphRAG extracts entities and relationship descriptions and writes community reports.
-The lower-cost Fast mode creates co-occurrence links and is a different experiment. This run
-uses Standard with one concurrent request and no extra extraction gleanings. Each pipeline
-result is checked; a partial run is not marked complete.
+**Purpose:** extract semantic relationships with Standard GraphRAG.
+**Checkpoint:** six table row counts and an extracted graph appear after a successful live run.
+**Interpretation:** generated relationships and community summaries still require evidence review.
 
-API responses are cached within the run directory. Reuse applies only to this corpus/model
-fingerprint. Move the workspace to Drive before live indexing to preserve it across sessions.
+This run uses one concurrent request and no extra gleanings. Partial runs are not marked complete.
+Matching completed indexes can be reused; `REUSE_COMPLETED_INDEX = False` forces a checked rebuild.
+Use persistent storage before indexing if you want to retain results across remote sessions.
 """)
 code('''
 if RUN_LIVE and smoke_ok:
@@ -279,15 +334,15 @@ else:
     print('GraphRAG indexing skipped. Enable RUN_LIVE and pass the provider probes to generate a graph.')
 ''')
 md("""
-## 8 · Ask the same question through passage/vector and graph retrieval
+<a id="8-compare-retrieval"></a>
+## 8 · Compare retrieval
 
-Both methods use the same prepared documents and completion model. Basic search is the
-passage/vector baseline; local search adds graph context. The comparison is inspectable, not
-an automatic claim that one method wins.
+**Purpose:** ask one question through both methods using the same documents and completion model.
+**Checkpoint:** basic/vector and local/graph answers appear with passages and marker-to-paper paths.
+**Interpretation:** inspect which answer is faithful and useful; no winner is assumed.
 
-Generated `[Data: ...]` markers are displayed separately from retrieved context. A retrieved
-passage is not automatically a citation used by the answer. Text-unit IDs are resolved back
-to document IDs and source metadata so you can inspect the original paper.
+Retrieved context and generated `[Data: ...]` markers are separate. Resolved IDs establish provenance,
+not claim correctness. Derived community summaries are labeled; unresolved IDs remain visible.
 """)
 code('''
 QUESTION = 'What do the included sources say about protein timing versus total protein intake, and what limits those conclusions?'
@@ -305,15 +360,16 @@ else:
     print('Live question answering skipped. No generated answer or performance score is claimed.')
 ''')
 md("""
-## 9 · Export reproducible artifacts and review results
+<a id="9-export-and-review"></a>
+## 9 · Export and review
 
-Export files contain source metadata, graph records, answers/context and an unscored evaluation
-sheet. Fill scores only after inspecting passages. Keep source XML attributions when sharing.
-The project bundle and key-free demo can be shared immediately; live outputs should be reviewed
-before publication. Raw model cache/logs stay private and are not included in the export ZIP.
+**Purpose:** save reproducible artifacts for inspection and deliberate scoring.
+**Checkpoint:** the cell prints the export ZIP path and its offline/live status.
+**Interpretation:** evaluations remain unscored; live answers are unreviewed.
 
-To evaluate more questions, select covered rows from `evaluation`, run both methods, and record
-the results deliberately. Avoid an unbounded batch while exploring a free API quota.
+For a remote VS Code kernel, use the Colab extension's **Contents** view to download the ZIP.
+Browser Colab's Files panel is an alternative. A local kernel writes into this project's `runs/` folder.
+Raw caches, logs and keys are excluded. Keep source attributions; review live outputs before sharing.
 """)
 code('''
 from datetime import datetime, timezone
@@ -349,20 +405,20 @@ with zipfile.ZipFile(bundle, 'w', zipfile.ZIP_DEFLATED) as archive:
     for path in sorted(export_dir.iterdir()):
         archive.write(path, arcname=path.name)
 print({'status': status, 'export': str(bundle)})
-if 'google.colab' in sys.modules:
-    from google.colab import files
-    print('Download with: files.download(str(bundle))')
+if IS_COLAB_RUNTIME:
+    print('Download this ZIP through the Colab extension Contents view or browser Colab Files panel.')
+else:
+    print('The ZIP is available in the local runs folder.')
 ''')
 md("""
-## What this experiment establishes
+### Record the finding
 
-- Source identity, licensing, reproducible preparation and graph inspection can be tested without credentials.
-- A credentialed run can establish whether the selected Gemini models work with this GraphRAG release.
-- Comparing answers and tracing citations can reveal whether graph context improves the selected tasks.
-- Research appraisal, current-literature coverage, claim approval and production Aurevion integration remain separate work.
+- Which covered questions benefited from graph context?
+- Did each cited passage support its claim and studied population?
+- Were the added extraction cost and complexity useful for those questions?
 
-Future integration targets the refactored `apps/api/app/features/evidence_knowledge` boundary.
-Keep the experiment's portable records and evaluation evidence; promote only behavior that has been reviewed.
+Keep scores empty until reviewed. Current-literature coverage, approved policies and Aurevion
+integration require separate work. The future API boundary is `apps/api/app/features/evidence_knowledge`.
 """)
 
 for index, cell in enumerate(cells):

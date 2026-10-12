@@ -5,109 +5,70 @@
 
 **Research passages → evidence context → reviewable product decisions.**
 
-A Colab-first experiment using Microsoft GraphRAG and Gemini to investigate whether graph-assisted retrieval improves how we inspect fitness and nutrition evidence. The project connects an attributed research corpus, inspectable retrieval context, and explicit draft decision links.
+This standalone lab asks whether Microsoft GraphRAG adds useful context when inspecting fitness and nutrition research. Start with a key-free walkthrough, then opt into Gemini indexing and compare passage retrieval with graph-assisted retrieval.
+
+## Start in VS Code
+
+1. Open the local `aurevion-knowledge-graph` folder in VS Code and install the recommended **Google Colab** extension.
+2. Open [`notebooks/01_graphrag_colab.ipynb`](notebooks/01_graphrag_colab.ipynb).
+3. Choose **Select Kernel → Colab → Auto Connect**, or **New Colab Server** with a CPU runtime. This lab needs no GPU.
+4. Keep `RUN_LIVE = False` and run the notebook from the top. If installation changes loaded dependencies, restart the kernel and rerun from the top.
+5. Inspect the sources, draft graph, coverage sheet and export ZIP before enabling live inference.
+
+Your notebook edits stay local; the Colab kernel executes on Google's runtime. See [the VS Code workflow](docs/vscode-colab.md) for source refresh, credentials and runtime files. The badge above opens the same lab in browser Colab.
+
+## The lab
+
+| Track | What it demonstrates |
+|---|---|
+| Key-free | Five licensed source snapshots, provenance checks, a human-authored draft decision graph and ten unscored evaluation questions |
+| Live, opt-in | Gemini completion/embedding probes, Standard GraphRAG indexing, basic/local query comparison and citation-to-paper inspection |
+
+Live defaults use **two abstracts**, GraphRAG **3.3.0**, `gemini-3.1-flash-lite`, `gemini-embedding-001`, one concurrent request, response caching and no extraction gleanings. Check your API project's quota and billing before setting `RUN_LIVE = True`. A Google AI Pro subscription does not automatically supply notebook API quota; [Google setup](docs/google-setup.md) explains the distinction.
+
+Basic search retrieves passages through vectors. Local search adds extracted entities and relationships. Both query the same prepared documents. Generated citation markers and retrieved context are shown separately; resolving a marker to a paper still requires checking whether its passage supports the claim.
 
 ![Human-authored demonstration of research-to-decision traceability](assets/evidence-graph.png)
 
-The preview is a **human-authored demonstration**, not a model-generated GraphRAG result. Live model inference and retrieval performance have not yet been verified. The notebook keeps those states separate.
+This preview is a **human-authored demonstration**, not a generated GraphRAG result. Decision links remain draft examples. Evaluation scores start empty, and no retrieval advantage or clinical benefit is claimed.
 
-## Start in Colab
+## Files and guides
 
-1. Click **Open in Colab** above. The notebook's first cell loads this public repository.
-2. Alternatively, upload [`notebooks/01_graphrag_colab.ipynb`](notebooks/01_graphrag_colab.ipynb) to [Colab](https://colab.research.google.com/), clear `REPOSITORY_URL`, and upload `aurevion-knowledge-lab-colab.zip` when prompted. Build this bundle with `python scripts/package_colab.py`, or use the supplied local `dist/` bundle.
-3. Run all cells with the default `RUN_LIVE = False`. Inspect the papers, interactive example graph, draft decision dependencies, coverage checks and portable exports.
-4. For actual Gemini inference, add `GEMINI_API_KEY` to Colab Secrets and grant the notebook access. Check your API project's quota and billing, set `RUN_LIVE = True`, and start with the default **two abstracts**.
-5. Enable `PERSIST_TO_DRIVE` before a live run to keep the response cache and completed index across sessions. The notebook stops if its structured-extraction or embedding smoke test fails.
-
-On a fresh Colab runtime, the first installation can replace packages that Colab has already loaded. If cell 1 says **Dependencies changed**, choose **Runtime → Restart session and run all** once. Installed packages and the cloned project remain on the runtime disk; the new session then imports the matching versions.
-
-The notebook loads the repository into its own runtime directory. For a reproducible published run, record the Git commit as well as the corpus and model fingerprint.
-
-## What is here
-
-| Component | Purpose |
+| Path | Purpose |
 |---|---|
-| Five CC-BY article snapshots | Small historical pipeline corpus with authors, source IDs, licenses and SHA-256 hashes |
-| Source-to-decision walkthrough | Human-authored draft claims, population context and proposed decision links |
-| Pinned GraphRAG adapter | Standard indexing, local graph search and basic passage/vector search |
-| Gemini smoke test | Structured source-quote extraction and finite 3,072-dimensional embedding check |
-| Interactive graph | Inspect example links or actual extracted relationships in the notebook |
-| Ten evaluation questions | Source coverage, applicability, disagreement, missing evidence and traceability |
-| Portable artifacts | JSON, Parquet, HTML graph and a ZIP excluding credentials and raw model caches |
-| Offline verification | Source integrity tests, adapter tests, notebook execution and CI |
+| [Notebook](notebooks/01_graphrag_colab.ipynb) | Guided experiment and portable JSON, Parquet, HTML and ZIP exports |
+| [Lab notes](docs/lab-notes.md) | Questions, observations and next experiments |
+| [VS Code + Colab](docs/vscode-colab.md) | Local editing, remote execution and iteration |
+| [Google setup](docs/google-setup.md) | Models, API access and credentials |
+| [Evaluation guide](docs/evaluation-guide.md) | Coverage checks, citation review and scoring |
+| [Corpus](corpus/README.md) | Source attribution, licenses and preparation |
+| [Verification](docs/verification.md) | Recorded checks and remaining evidence |
+| `src/aurevion_knowledge_lab/` | Corpus, GraphRAG adapter and artifact helpers |
+| `decisions/examples.json` | Explicit human-authored claim and decision links |
 
-## The experiment
+`scripts/build_notebook.py` generates the output-free source notebook. Update this generator when changing the lab, then rebuild the notebook. Runtime outputs and caches belong under ignored `runs/`; source bundles are built with `python scripts/package_colab.py`. The internal Python package retains the name `aurevion-knowledge-lab`.
 
-The initial live run uses `gemini-3.1-flash-lite` and `gemini-embedding-001` with GraphRAG **3.3.0**. One concurrent request, two abstracts, a response cache and no extraction gleanings keep the first run bounded. Provider compatibility still requires the live smoke test.
+## Local checks
 
-The notebook compares **basic search** (passage/vector retrieval) with **local search** (graph-assisted context) on identical prepared documents. It presents generated citation markers separately from retrieved source context; each resolved passage links through its text-unit ID to its original document metadata. Retrieved context alone does not prove that an answer's claims are supported.
-
-Standard GraphRAG proposes semantic entity relationships. FastGraphRAG's co-occurrence graph is a different indexing method. Neither establishes scientific certainty or approves a product decision automatically. [Microsoft's indexing methods](https://microsoft.github.io/graphrag/index/methods/)
-
-Evaluate the actual answers before expanding the corpus. Scores begin empty; no quality advantage, cost saving or clinical benefit is claimed. See [the evaluation guide](docs/evaluation-guide.md).
-
-## Google AI Pro and API access
-
-Google's current plan documentation provides higher AI Studio UI access and describes eligible monthly Cloud credits for API usage. The direct API still uses a separately managed project and key. Colab benefits depend on membership eligibility. Check your own benefits rather than assuming subscription UI quota transfers to notebook calls. [Setup guide](docs/google-setup.md) · [Google AI plans](https://ai.google.dev/gemini-api/docs/google-ai-plans)
-
-The key-free walkthrough requires no API credit or GPU. Live usage depends on your project quotas and billing. The usage ledger records observed LiteLLM token counts and available cost estimates; it is not a hard spend limit or a billing statement. Free-tier model input can be used to improve Google's products, so this experiment uses public licensed research rather than private user data.
-
-## Run locally
-
-Use Python **3.11–3.13**. Python 3.14 is outside the pinned GraphRAG release's supported range.
+Use Python **3.11–3.13**; the pinned GraphRAG release excludes 3.14.
 
 ```bash
-python3.11 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
 python -m unittest discover -s tests -v
 python scripts/validate_notebook.py
 python scripts/run_offline_notebook.py
-python scripts/package_colab.py
 ```
 
-For an interactive local session, install JupyterLab in this environment and open the source notebook:
+To use a local kernel instead, select this environment in VS Code, or install JupyterLab and run `python -m jupyterlab notebooks/01_graphrag_colab.ipynb`. The notebook runner writes its executed copy under `runs/`.
 
-```bash
-python -m pip install jupyterlab
-python -m jupyterlab notebooks/01_graphrag_colab.ipynb
-```
+## Status and boundaries
 
-`scripts/build_notebook.py` regenerates the committed, output-free source notebook. The execution script uses the active Python interpreter and writes its executed copy under ignored `runs/`. `scripts/render_demo.py` renders the README preview from the actual draft annotation records.
+- **Verified:** local source/configuration/adapter checks and the complete key-free notebook; the key-free track also ran in browser Colab on CPU. Details are in [the verification record](docs/verification.md).
+- **Pending:** execution through the VS Code Colab extension, credentialed Gemini probes, live indexing/queries and scored retrieval comparisons.
+- **Scope:** five papers from 2013–2018 form a historical pipeline test corpus. They do not establish current scientific consensus or approve Aurevion policies.
 
-`docs/local-environment.txt` records the successful macOS/Python 3.12 validation environment. It is a reference snapshot, not a platform-independent lock file.
+The lab is independent of Aurevion's application dependencies. Future integration at `apps/api/app/features/evidence_knowledge` should consume reviewed records and evaluated retrieval behavior in a separate pass.
 
-## Architecture and Aurevion integration
-
-```text
-Licensed source snapshots + manifest
-             ↓
-Deterministic, bounded document preparation
-             ↓
-Standard GraphRAG → Parquet graph tables + LanceDB vectors
-             ↓
-Basic/local retrieval → answer + inspectable context
-             ↓
-Human evaluation and explicitly reviewed decision links
-```
-
-Original corpus snapshots remain attributable and reproducible. Draft decisions live in `decisions/examples.json`; they are separate from model-extracted graph edges. A pure graph traversal can identify draft decisions affected by a source ID, while upstream correction detection remains future work.
-
-When a source refresh changes XML, the prior XML and manifest are retained under ignored, hash-addressed `runs/source-history/` snapshots. This preserves prior input evidence; it does not automatically revise scientific interpretations or product rules.
-
-This project is independent of Aurevion's application dependencies. The verified future boundary on `codex/tokens-grid` is `apps/api/app/features/evidence_knowledge`. Integration should be a separate pass that consumes reviewed portable records and measured retrieval behavior.
-
-## Verification status
-
-- **Verified locally:** 46 tests covering source identity/license/hash checks, deterministic preparation, actual GraphRAG 3.3.0 configuration, adapter behavior and recovery; the entire key-free notebook also executes successfully.
-- **Verified in hosted Colab:** the complete key-free track on a CPU runtime, including graph rendering, coverage checks and artifact export, after one dependency-installation session restart.
-- **Pending:** a credentialed Gemini smoke test, live indexing, answers and scored retrieval comparisons.
-- **Remote verification:** GitHub Actions runs offline tests and notebook execution; its current result is shown in the badge above.
-
-Microsoft currently describes GraphRAG as a research project in maintenance mode. The pinned adapter and portable outputs keep the experiment's findings independent of future framework choices. [Upstream project](https://github.com/microsoft/graphrag)
-
-## Corpus and license
-
-The five papers were published between 2013 and 2018 and are a **historical test corpus**, not a current comprehensive review. Position stands, meta-analyses and an observational cohort have different evidentiary roles. Population limits and truncation flags remain visible. [Corpus details and attribution](corpus/README.md)
-
-Original project code is MIT licensed. Article XML retains its individual CC-BY license; the MIT license does not relicense those papers. Preserve source attribution, license links and transformation notices when sharing derived material.
+Original code is MIT licensed. Article XML retains its individual CC-BY license. Preserve attribution, license links and transformation notices when sharing derived material.

@@ -1,63 +1,42 @@
 # Evaluate the retrieval experiment
 
-The ten fixed questions in `evaluations/questions.jsonl` are a test sheet, not a medical recommendation answer key. Expected behaviors describe source handling, applicability and evidence gaps. Each score starts as `null`, meaning **not evaluated**, rather than zero or failure.
+## Check coverage first
 
-The five papers form a historical pipeline test corpus. They do not establish a comprehensive or current fitness/nutrition literature review. Every draft decision link and human-authored example is labeled separately from live GraphRAG output.
+The ten questions in [`evaluations/questions.jsonl`](../evaluations/questions.jsonl) describe expected source handling, not medical answer keys. Scores start as `null`: **not evaluated**.
 
-## Start with the indexed corpus
+The default index contains the first **two abstracts**. Check each question's `required_source_ids` and `minimum_document_mode` against `corpus_covered`, `mode_covered` and the prepared documents' truncation flags. A downloaded paper may be absent from the index; selecting full-text mode does not guarantee a character-capped document contains the needed methods or tables.
 
-The live experiment initially indexes **the first two documents' abstracts**. For each question, compare `required_source_ids` with the enabled indexing selection. A downloaded paper is not necessarily an indexed paper. A paper present only as an abstract cannot support an answer that requires unavailable full-text methods or tables.
+Mark missing sources or passages **not run: missing evidence**, leaving scores empty. Do not count unavailable input as a retrieval failure or fill the gap from model memory. Evidence-gap answers must stay bounded to the declared corpus, without claiming no relevant research exists elsewhere.
 
-If a question requires a source that was not indexed, mark it **not run: missing enabled sources**. Record the source IDs and document mode before evaluating. Do not count that question as a retrieval failure, assign a zero, or silently answer from model memory. After extending the corpus, rerun indexing and evaluate against that newly recorded run.
+## Compare the same experiment
 
-Questions about absent evidence can be tested only for the declared corpus: an answer may say the indexed sources do not establish something. It must not claim no research exists anywhere.
+Run each covered question through **basic** passage/vector search and **local** graph-assisted search with identical documents and model settings. Preserve the question, answers, context, citation identifiers, source hashes and run settings. Record latency and token usage when available; a longer answer alone does not demonstrate better retrieval.
 
-## Compare retrieval methods
-
-Run the same question against the same document set and model settings through:
-
-- Basic/vector retrieval, which retrieves related text without requiring graph traversal.
-- Local/graph retrieval, which also uses extracted entities and relationships.
-
-Document-specific questions test whether either method can recover a precise source. Questions spanning several studies test whether graph retrieval adds useful context or a defensible connection. Global synthesis can be explored later; a longer answer alone is not evidence of better retrieval.
-
-Record each method's raw answer, retrieved context, citation identifiers, latency and reported token usage. These fields are observations, not ratings. Preserve the provider/model versions and source hashes with the run.
-
-## Check citations and claims
-
-Inspect the source text before scoring. Generated answer citations and retrieved-context rows are different things: retrieval of a paper does not prove the answer cited it, and citation of a paper does not prove it supports the assertion.
+## Inspect claims and citations
 
 For each substantive assertion:
 
-1. Resolve its document/text-unit identifiers back to the source manifest and cached text.
-2. Find the relevant passage and determine whether the assertion is supported.
-3. Check studied population, intervention, comparator, outcome and duration where available.
-4. Keep reported findings, proposed interpretations and Aurevion's draft decision separate.
-5. Identify disagreement, unavailable detail or missing evidence explicitly.
+1. Trace its generated marker through `resolved_citation_markers` to the text-unit/document IDs and original source passage. Treat unresolved markers as gaps; report markers identify derived community summaries.
+2. Check whether the passage supports the assertion and preserves population, study design, intervention, comparator, outcome and duration where available.
+3. Keep reported findings, model interpretations and human-authored draft decisions distinct. Record disagreement, missing details and unsupported claims.
 
-For observational findings, check that the answer does not imply randomized causal evidence. For a population-specific paper, check that the answer does not generalize to all users without justification. For a missing-source or missing-outcome question, a well-bounded statement of insufficient evidence can be a strong answer.
+Retrieved context is separate from generated citations, and a resolved citation does not prove correctness. Observational findings do not establish randomized causal evidence. The five historical papers do not establish current consensus or justify universal recommendations.
 
 ## Score after inspection
 
-The question records reserve four nullable scores:
+Use the four nullable scores already present in each question record:
 
 | Score | 0 | 1 | 2 |
-| --- | --- | --- | --- |
-| `citation_traceability` | Sources cannot be resolved or citations are fabricated | Some citations resolve; substantive gaps remain | Every substantive sourced assertion resolves to the intended source text |
-| `evidence_fidelity` | Material unsupported or contradictory claims | Mostly grounded with an omission or imprecise qualification | Claims and uncertainty match the available text |
-| `applicability` | Population, study design or causal scope is materially misrepresented | Applicability is mentioned but incomplete | Relevant limits and study design are preserved |
-| `question_coverage` | Does not address the question | Addresses part of it | Addresses the question, including an appropriate evidence-gap response where needed |
+|---|---|---|---|
+| `citation_traceability` | Unresolvable or fabricated citations | Some resolve; gaps remain | Every sourced assertion resolves to intended text |
+| `evidence_fidelity` | Material unsupported or contradictory claims | Mostly grounded; some omissions | Claims and uncertainty match available text |
+| `applicability` | Population, design or causal scope misrepresented | Limits mentioned incompletely | Relevant limits and design preserved |
+| `question_coverage` | Question unanswered | Partly addressed | Addressed, including appropriate evidence gaps |
 
-Attach short reviewer notes explaining the score. There are no prefilled gold answers or required numeric scientific conclusions. Do not fill scores from another model's opinion alone.
+Attach concise reviewer notes explaining each score. Do not fill scores from model confidence or another model's opinion alone.
 
-## Source correction and decision review
+## Review changes and decide what follows
 
-The source-change question evaluates engineering traceability. Check whether the exported manifest can identify a changed source hash and whether explicit draft decision links identify dependent decisions. A fresh research graph should not be credited with automatic policy-change detection unless the implementation actually demonstrates it.
+For source revisions, compare IDs and hashes and trace explicit draft decision dependencies. Preserve the earlier snapshot and run evidence. The lab retains changed XML and manifest history; detecting upstream corrections and approving policy changes remain separate work.
 
-Record a correction as a new source snapshot or revision rather than modifying historical run evidence in place. Re-extraction can propose changed claims; a reviewer must still decide whether a draft product decision should change.
-
-## Decide whether to expand
-
-Inspect failures first: missing enabled sources, missing full-text detail, bad source joins, malformed extraction, unsupported relationships and synthesis errors require different repairs. Fix the relevant stage and rerun only the affected checks.
-
-Expand beyond the first two abstracts when citation joins work and the notebook provides useful, inspectable answers. Integrate with Aurevion only after reproducible runs show an advantage for actual research/decision questions over basic retrieval and after decision links have been reviewed. Report live model results as unverified until a credentialed run has succeeded and been inspected.
+Expand beyond two abstracts after citations and answers are useful and inspectable. Diagnose missing input, bad joins, malformed extraction and synthesis errors separately. Integration with Aurevion requires reviewed decision links and reproducible evidence of an advantage over basic retrieval for actual research questions. Live quality remains unverified until a credentialed run succeeds and its outputs are inspected.
