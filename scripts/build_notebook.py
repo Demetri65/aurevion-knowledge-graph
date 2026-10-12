@@ -39,6 +39,10 @@ md("""
 The notebook uses Python **3.11–3.13**. The project source is separate from Colab's runtime.
 The ZIP contains the notebook, source code, licensed article snapshots and evaluation questions;
 it excludes credentials and run caches. Package installation can take several minutes.
+
+**First Colab run:** if the cell stops with **Dependencies changed**, choose
+**Runtime → Restart session and run all** once. This refreshes preloaded packages;
+the installation and project files remain on the runtime disk.
 """)
 code('''
 import sys, os, json, subprocess, zipfile, stat

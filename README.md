@@ -19,6 +19,8 @@ The preview is a **human-authored demonstration**, not a model-generated GraphRA
 4. For actual Gemini inference, add `GEMINI_API_KEY` to Colab Secrets and grant the notebook access. Check your API project's quota and billing, set `RUN_LIVE = True`, and start with the default **two abstracts**.
 5. Enable `PERSIST_TO_DRIVE` before a live run to keep the response cache and completed index across sessions. The notebook stops if its structured-extraction or embedding smoke test fails.
 
+On a fresh Colab runtime, the first installation can replace packages that Colab has already loaded. If cell 1 says **Dependencies changed**, choose **Runtime → Restart session and run all** once. Installed packages and the cloned project remain on the runtime disk; the new session then imports the matching versions.
+
 The notebook loads the repository into its own runtime directory. For a reproducible published run, record the Git commit as well as the corpus and model fingerprint.
 
 ## What is here
@@ -98,7 +100,8 @@ This project is independent of Aurevion's application dependencies. The verified
 ## Verification status
 
 - **Verified locally:** 46 tests covering source identity/license/hash checks, deterministic preparation, actual GraphRAG 3.3.0 configuration, adapter behavior and recovery; the entire key-free notebook also executes successfully.
-- **Pending:** a credentialed Gemini smoke test, live indexing, answers and scored retrieval comparisons; execution on a fresh hosted Colab runtime.
+- **Verified in hosted Colab:** the complete key-free track on a CPU runtime, including graph rendering, coverage checks and artifact export, after one dependency-installation session restart.
+- **Pending:** a credentialed Gemini smoke test, live indexing, answers and scored retrieval comparisons.
 - **Remote verification:** GitHub Actions runs offline tests and notebook execution; its current result is shown in the badge above.
 
 Microsoft currently describes GraphRAG as a research project in maintenance mode. The pinned adapter and portable outputs keep the experiment's findings independent of future framework choices. [Upstream project](https://github.com/microsoft/graphrag)
